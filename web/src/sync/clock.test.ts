@@ -119,3 +119,4 @@ describe('PlaybackClock', () => {
     expect(clock.getPositionMs()).toBe(12050);
   });
 });
+

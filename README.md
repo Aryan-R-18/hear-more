@@ -92,3 +92,4 @@ $$\text{frame} = f(t_{\text{ms}}, \text{ctx})$$
 
 1. **Lyrics Copyright:** Lyrics are retrieved via [LRCLIB](https://lrclib.net) and remain the intellectual property and copyright of their respective authors, artists, and publishers. This project is provided for personal use and educational research only. Any commercial distribution or public hosting requires formal copyright and licensing clearances.
 2. **Audio Integrity:** This application does not rip, scrape, download, or re-broadcast audio files or streams from any music streaming service. Playback position and metadata are read strictly for visual synchronization.
+
