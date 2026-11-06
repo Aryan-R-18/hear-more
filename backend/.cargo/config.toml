@@ -1,0 +1,6 @@
+[target.x86_64-pc-windows-msvc]
+rustflags = [
+    "-L", "native=c:\\Users\\hp\\OneDrive\\Documents\\Desktop\\PROJECT\\lyric-gen\\backend\\libs",
+    "-L", "native=C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\VC\\Tools\\MSVC\\14.42.34433\\lib\\x64",
+    "-L", "native=C:\\Program Files (x86)\\Microsoft SDKs\\Windows\\v7.0A\\Lib\\x64"
+]
