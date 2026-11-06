@@ -1,8 +1,59 @@
+# Dependencies
 node_modules/
+.pnp
+.pnp.js
+
+# Build and distribution outputs
 dist/
 dist-extension/
+build/
 target/
+**/target/
+
+# Binaries, libraries and compiler artifacts
+*.dll
+*.exe
+*.exp
+*.pdb
+*.obj
+*.o
+*.a
+*.so
+*.dylib
+
+# Allow essential import libs and headers in backend/libs
+!backend/libs/*.lib
+!backend/libs/*.def
+!backend/libs/*.h
+
+# Local SQLite databases and caches
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+lyrics.db*
+
+# Environment and local configs
+.env
+.env.*
+!.env.example
 *.local
+
+# Editor & OS files
+.vscode/
+.idea/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
 .DS_Store
 Thumbs.db
 
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
