@@ -1,0 +1,16 @@
+{
+  "name": "kinetic-lyrics",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "shared",
+    "web",
+    "extension"
+  ],
+  "scripts": {
+    "dev": "npm --workspace=web run dev",
+    "build": "npm --workspace=web run build",
+    "test": "npm --workspace=web run test"
+  }
+}
+

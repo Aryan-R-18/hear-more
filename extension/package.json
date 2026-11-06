@@ -1,0 +1,12 @@
+{
+  "name": "kinetic-lyrics-extension",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "echo \"extension build in phase 3\""
+  },
+  "dependencies": {
+    "@kinetic-lyrics/shared": "*"
+  }
+}
