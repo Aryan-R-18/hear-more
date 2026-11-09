@@ -47,3 +47,25 @@ export interface ThemeConfig {
   textColor: string;
 }
 
+export interface ExtensionSettings {
+  backendUrl: string;
+  offsetMs: number;
+  defaultScene: SceneType;
+  themeKey: string;
+}
+
+export const DEFAULT_EXTENSION_SETTINGS: ExtensionSettings = {
+  backendUrl: 'http://localhost:8080',
+  offsetMs: 0,
+  defaultScene: 'auto',
+  themeKey: 'cyberpunk',
+};
+
+export type ExtensionMessage =
+  | { type: 'PLAYER_STATE_UPDATE'; state: PlayerState | null; tabId?: number }
+  | { type: 'GET_PLAYER_STATE' }
+  | { type: 'PLAYER_STATE_RESPONSE'; state: PlayerState | null }
+  | { type: 'GET_SETTINGS' }
+  | { type: 'SAVE_SETTINGS'; settings: Partial<ExtensionSettings> };
+
+
