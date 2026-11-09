@@ -9,8 +9,9 @@
   ],
   "scripts": {
     "dev": "npm --workspace=web run dev",
-    "build": "npm --workspace=web run build",
+    "build": "npm --workspace=web run build && npm --workspace=extension run build",
+    "build:web": "npm --workspace=web run build",
+    "build:extension": "npm --workspace=extension run build",
     "test": "npm --workspace=web run test"
   }
 }
-
