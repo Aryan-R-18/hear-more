@@ -1,3 +1,9 @@
+[env]
+LIBSQLITE3_SYS_USE_PKG_CONFIG = "1"
+SQLITE3_LIB_DIR = "c:\\Users\\hp\\OneDrive\\Documents\\Desktop\\PROJECT\\lyric-gen\\backend\\libs"
+SQLITE3_INCLUDE_DIR = "c:\\Users\\hp\\OneDrive\\Documents\\Desktop\\PROJECT\\lyric-gen\\backend\\libs"
+LIB = "c:\\Users\\hp\\OneDrive\\Documents\\Desktop\\PROJECT\\lyric-gen\\backend\\libs;C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\VC\\Tools\\MSVC\\14.42.34433\\lib\\x64;C:\\Program Files (x86)\\Microsoft SDKs\\Windows\\v7.0A\\Lib\\x64"
+
 [target.x86_64-pc-windows-msvc]
 rustflags = [
     "-L", "native=c:\\Users\\hp\\OneDrive\\Documents\\Desktop\\PROJECT\\lyric-gen\\backend\\libs",

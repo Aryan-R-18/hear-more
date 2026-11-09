@@ -8,6 +8,7 @@
     "extension"
   ],
   "scripts": {
+    "backend": "powershell -ExecutionPolicy Bypass -File ./run-backend.ps1",
     "dev": "npm --workspace=web run dev",
     "build": "npm --workspace=web run build && npm --workspace=extension run build",
     "build:web": "npm --workspace=web run build",
