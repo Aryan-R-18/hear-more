@@ -5,7 +5,8 @@ import { PlainLyrics } from './components/PlainLyrics';
 import { usePlayerStore } from './store/playerStore';
 import sampleLrc1 from './assets/sample.lrc?raw';
 import sampleLrc2 from './assets/sample2.lrc?raw';
-import { SceneType } from '@kinetic-lyrics/shared';
+import { SceneType, ExtensionMessage, ExtensionSettings } from '@kinetic-lyrics/shared';
+import { Radio } from 'lucide-react';
 
 const SAMPLES = [
   {
@@ -35,23 +36,67 @@ export const App: React.FC = () => {
     sceneOverride,
     isSynced,
     plainLyrics,
+    isExtensionMode,
+    isLoadingLyrics,
+    lyricsStatusMessage,
+    lines,
+    track,
     togglePlay,
     seek,
     setOffset,
     setSceneOverride,
     toggleFullscreen,
-    loadLrcText
+    loadLrcText,
+    setIsExtensionMode,
+    applySettings,
+    syncPlayerState
   } = usePlayerStore();
 
-  // Load initial sample
+  // Extension vs Standalone initialization
   useEffect(() => {
-    const sample = SAMPLES[selectedSample];
-    loadLrcText(sample.lrc, {
-      title: sample.title,
-      artist: sample.artist,
-      duration: sample.duration
-    });
-  }, [selectedSample, loadLrcText]);
+    const isExt = typeof chrome !== 'undefined' && Boolean(chrome.runtime?.id);
+    setIsExtensionMode(isExt);
+
+    if (isExt) {
+      // 1. Fetch saved user settings from background
+      try {
+        chrome.runtime.sendMessage({ type: 'GET_SETTINGS' }, (response?: { settings?: Partial<ExtensionSettings> }) => {
+          if (response?.settings) {
+            applySettings(response.settings);
+          }
+        });
+
+        // 2. Query initial playback state
+        chrome.runtime.sendMessage({ type: 'GET_PLAYER_STATE' }, (response) => {
+          if (response?.state) {
+            syncPlayerState(response.state);
+          }
+        });
+
+        // 3. Subscribe to background broadcasts
+        const handleMessage = (message: ExtensionMessage) => {
+          if (message.type === 'PLAYER_STATE_UPDATE') {
+            syncPlayerState(message.state);
+          }
+        };
+
+        chrome.runtime.onMessage.addListener(handleMessage);
+        return () => {
+          chrome.runtime.onMessage.removeListener(handleMessage);
+        };
+      } catch {
+        // Fallback if extension context not ready
+      }
+    } else {
+      // Standalone mode: load initial sample
+      const sample = SAMPLES[selectedSample];
+      loadLrcText(sample.lrc, {
+        title: sample.title,
+        artist: sample.artist,
+        duration: sample.duration
+      });
+    }
+  }, [isExtensionMode, selectedSample]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -106,6 +151,7 @@ export const App: React.FC = () => {
   };
 
   const progressPercent = durationMs > 0 ? (currentTimeMs / durationMs) * 100 : 0;
+  const hasNoSyncedLyrics = !isSynced || lines.length === 0;
 
   return (
     <div
@@ -126,6 +172,37 @@ export const App: React.FC = () => {
         />
       )}
 
+      {/* Clean Idle / Loading / No Lyrics Display */}
+      {hasNoSyncedLyrics && !plainLyrics && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center p-8 pointer-events-none z-30">
+          <div className="max-w-md text-center flex flex-col items-center gap-4 backdrop-blur-md bg-black/40 border border-white/10 rounded-2xl p-8 shadow-2xl">
+            <div className="w-12 h-12 rounded-full bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center">
+              <Radio className={`w-6 h-6 text-indigo-400 ${isPlaying || isLoadingLyrics ? 'animate-pulse' : 'opacity-60'}`} />
+            </div>
+
+            <div>
+              <h2 className="text-lg font-bold text-white tracking-tight">
+                {isLoadingLyrics
+                  ? 'Fetching Synced Lyrics...'
+                  : track.title && track.title !== 'Unknown Track'
+                  ? track.title
+                  : 'Kinetic Lyrics'}
+              </h2>
+              {track.artist && (
+                <p className="text-sm text-zinc-400 mt-0.5">{track.artist}</p>
+              )}
+            </div>
+
+            <p className="text-xs text-zinc-400 leading-relaxed">
+              {lyricsStatusMessage ||
+                (isExtensionMode
+                  ? 'Play any track on YouTube, YouTube Music, or Spotify Web to visualize live synced lyrics.'
+                  : 'Select a sample song below to preview kinetic typography visuals.')}
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Floating Header Branding */}
       <div
         className={`absolute top-6 left-6 z-40 transition-opacity duration-300 pointer-events-none ${
@@ -138,7 +215,7 @@ export const App: React.FC = () => {
             Kinetic Lyrics
           </span>
           <span className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-white/10 text-white/50">
-            Phase 1
+            {isExtensionMode ? 'Extension' : 'Visualizer'}
           </span>
         </div>
       </div>
@@ -153,4 +230,3 @@ export const App: React.FC = () => {
     </div>
   );
 };
-

@@ -9,7 +9,8 @@ import {
   Palette,
   Layers,
   Music,
-  ChevronDown
+  ChevronDown,
+  Server
 } from 'lucide-react';
 import { usePlayerStore } from '../store/playerStore';
 import { DEFAULT_THEMES } from '../engine/types';
@@ -35,15 +36,19 @@ export const Controls: React.FC<{
     sceneOverride,
     isFullscreen,
     track,
+    isExtensionMode,
+    backendUrl,
     togglePlay,
     seek,
     setOffset,
     setThemeKey,
     setSceneOverride,
+    setBackendUrl,
     toggleFullscreen
   } = usePlayerStore();
 
   const [showSettings, setShowSettings] = useState(false);
+  const [localBackendUrl, setLocalBackendUrl] = useState(backendUrl);
 
   const progressPercent = durationMs > 0 ? Math.min(100, (currentTimeMs / durationMs) * 100) : 0;
 
@@ -55,6 +60,12 @@ export const Controls: React.FC<{
 
   const handleOffsetChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setOffset(parseInt(e.target.value, 10));
+  };
+
+  const handleBackendUrlBlur = () => {
+    if (localBackendUrl.trim()) {
+      setBackendUrl(localBackendUrl.trim());
+    }
   };
 
   return (
@@ -93,21 +104,23 @@ export const Controls: React.FC<{
             </div>
             <div className="min-w-0">
               <div className="text-sm font-bold text-white truncate tracking-tight">{track.title}</div>
-              <div className="text-xs text-zinc-400 truncate">{track.artist}</div>
+              <div className="text-xs text-zinc-400 truncate">{track.artist || 'Unknown Artist'}</div>
             </div>
 
-            {/* Sample Selector Dropdown */}
-            <div className="relative ml-2">
-              <select
-                value={selectedSample}
-                onChange={e => onSelectSample(parseInt(e.target.value, 10))}
-                className="bg-zinc-800/80 border border-zinc-700/60 rounded-lg text-xs text-zinc-300 py-1.5 px-2.5 pr-7 appearance-none cursor-pointer hover:bg-zinc-700/80 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-              >
-                <option value={0}>Sample 1: Synthwave</option>
-                <option value={1}>Sample 2: Starlight (Fast)</option>
-              </select>
-              <ChevronDown className="w-3.5 h-3.5 text-zinc-400 absolute right-2 top-2.5 pointer-events-none" />
-            </div>
+            {/* In Standalone Mode: Sample Selector Dropdown */}
+            {!isExtensionMode && (
+              <div className="relative ml-2">
+                <select
+                  value={selectedSample}
+                  onChange={e => onSelectSample(parseInt(e.target.value, 10))}
+                  className="bg-zinc-800/80 border border-zinc-700/60 rounded-lg text-xs text-zinc-300 py-1.5 px-2.5 pr-7 appearance-none cursor-pointer hover:bg-zinc-700/80 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                >
+                  <option value={0}>Sample 1: Synthwave</option>
+                  <option value={1}>Sample 2: Starlight (Fast)</option>
+                </select>
+                <ChevronDown className="w-3.5 h-3.5 text-zinc-400 absolute right-2 top-2.5 pointer-events-none" />
+              </div>
+            )}
           </div>
 
           {/* Center: Play / Pause / Reset */}
@@ -188,10 +201,10 @@ export const Controls: React.FC<{
           </div>
         </div>
 
-        {/* Collapsible Timing Offset Drawer */}
+        {/* Collapsible Timing Offset & Extension Settings Drawer */}
         {showSettings && (
-          <div className="mt-2 pt-3 border-t border-white/10 flex items-center justify-between text-xs text-zinc-400">
-            <div className="flex items-center gap-3 flex-1 max-w-md">
+          <div className="mt-2 pt-3 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-zinc-400">
+            <div className="flex items-center gap-3 flex-1 max-w-md w-full">
               <span className="font-medium text-zinc-300 shrink-0">Timing Offset:</span>
               <input
                 type="range"
@@ -213,8 +226,24 @@ export const Controls: React.FC<{
               </button>
             </div>
 
+            {/* Backend URL input for Extension Mode */}
+            {isExtensionMode && (
+              <div className="flex items-center gap-2">
+                <Server className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
+                <span className="text-zinc-400 text-[11px]">Backend:</span>
+                <input
+                  type="text"
+                  value={localBackendUrl}
+                  onChange={(e) => setLocalBackendUrl(e.target.value)}
+                  onBlur={handleBackendUrlBlur}
+                  placeholder="http://localhost:8080"
+                  className="bg-zinc-800/80 border border-zinc-700 rounded px-2 py-0.5 text-zinc-200 text-xs w-40 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                />
+              </div>
+            )}
+
             <div className="flex items-center gap-2 text-zinc-500 text-[11px]">
-              <span>Shortcuts: [ / ] offset ±50ms • Space play • F fullscreen • S cycle scenes</span>
+              <span>[ / ] offset ±50ms • Space play • F fullscreen • S cycle scenes</span>
             </div>
           </div>
         )}
@@ -222,4 +251,3 @@ export const Controls: React.FC<{
     </div>
   );
 };
-
