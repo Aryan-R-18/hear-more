@@ -19,10 +19,12 @@ export const Visualizer: React.FC = () => {
   useEffect(() => {
     if (!canvasRef.current) return;
 
+    let isMounted = true;
     const engine = new KineticEngine(canvasRef.current);
     engineRef.current = engine;
 
     engine.init().then(() => {
+      if (!isMounted) return;
       engine.setTheme(theme);
       engine.setSceneOverride(sceneOverride);
       engine.setLyrics(lines);
@@ -35,6 +37,7 @@ export const Visualizer: React.FC = () => {
     window.addEventListener('resize', handleResize);
 
     return () => {
+      isMounted = false;
       window.removeEventListener('resize', handleResize);
       engine.destroy();
       engineRef.current = null;

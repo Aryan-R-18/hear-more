@@ -26,52 +26,71 @@ export class KineticEngine {
 
   private activeSceneId: Exclude<SceneType, 'auto'> = 'drift';
   private isInitialized: boolean = false;
+  private isInitializing: boolean = false;
+  private isDestroyed: boolean = false;
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
   }
 
   public async init(): Promise<void> {
-    if (this.isInitialized) return;
+    if (this.isInitialized || this.isInitializing || this.isDestroyed) return;
+    this.isInitializing = true;
 
-    this.app = new Application();
-    await this.app.init({
-      canvas: this.canvas,
-      resizeTo: window,
-      resolution: window.devicePixelRatio || 1,
-      autoDensity: true,
-      backgroundColor: hexToNumber(this.theme.backgroundColor),
-      antialias: true
-    });
+    try {
+      const app = new Application();
+      await app.init({
+        canvas: this.canvas,
+        resizeTo: window,
+        resolution: window.devicePixelRatio || 1,
+        autoDensity: true,
+        backgroundColor: hexToNumber(this.theme.backgroundColor),
+        antialias: true
+      });
 
-    this.app.stage.addChild(this.backgroundGfx);
-    this.app.stage.addChild(this.rootContainer);
-    this.app.stage.addChild(this.instrumentalGfx);
+      if (this.isDestroyed) {
+        try {
+          app.destroy(true, { children: true });
+        } catch {
+          // ignore
+        }
+        return;
+      }
 
-    // Register all scenes
-    const drift = new DriftScene();
-    const dotMorph = new DotMorphScene();
-    const lineSweep = new LineSweepScene();
-    const pulse = new PulseScene();
+      this.app = app;
+      this.app.stage.addChild(this.backgroundGfx);
+      this.app.stage.addChild(this.rootContainer);
+      this.app.stage.addChild(this.instrumentalGfx);
 
-    drift.init(this.app, this.rootContainer);
-    dotMorph.init(this.app, this.rootContainer);
-    lineSweep.init(this.app, this.rootContainer);
-    pulse.init(this.app, this.rootContainer);
+      // Register all scenes
+      const drift = new DriftScene();
+      const dotMorph = new DotMorphScene();
+      const lineSweep = new LineSweepScene();
+      const pulse = new PulseScene();
 
-    this.scenes.set('drift', drift);
-    this.scenes.set('dotMorph', dotMorph);
-    this.scenes.set('lineSweep', lineSweep);
-    this.scenes.set('pulse', pulse);
+      drift.init(this.app, this.rootContainer);
+      dotMorph.init(this.app, this.rootContainer);
+      lineSweep.init(this.app, this.rootContainer);
+      pulse.init(this.app, this.rootContainer);
 
-    // Initial state: hide all scene containers until rendered
-    for (const scene of this.scenes.values()) {
-      scene.getContainer().visible = false;
-      scene.getContainer().alpha = 0;
+      this.scenes.set('drift', drift);
+      this.scenes.set('dotMorph', dotMorph);
+      this.scenes.set('lineSweep', lineSweep);
+      this.scenes.set('pulse', pulse);
+
+      // Initial state: hide all scene containers until rendered
+      for (const scene of this.scenes.values()) {
+        scene.getContainer().visible = false;
+        scene.getContainer().alpha = 0;
+      }
+
+      this.isInitialized = true;
+      this.isInitializing = false;
+      this.updateBackground();
+    } catch (err) {
+      this.isInitializing = false;
+      console.warn('KineticEngine: initialization cancelled or error:', err);
     }
-
-    this.isInitialized = true;
-    this.updateBackground();
   }
 
   public setLyrics(lines: LyricLine[]): void {
@@ -85,11 +104,13 @@ export class KineticEngine {
 
   public setTheme(theme: ThemeConfig): void {
     this.theme = theme;
-    this.updateBackground();
+    if (this.isInitialized) {
+      this.updateBackground();
+    }
   }
 
   private updateBackground(): void {
-    if (!this.app) return;
+    if (!this.app || !this.isInitialized || !this.app.screen || this.isDestroyed) return;
     const { width, height } = this.app.screen;
     const bgNum = hexToNumber(this.theme.backgroundColor);
     const primNum = hexToNumber(this.theme.primaryColor);
@@ -108,7 +129,7 @@ export class KineticEngine {
    * Seeking, pausing, and scrubbing instantly show the correct frame.
    */
   public renderFrame(tMs: number): void {
-    if (!this.app || !this.isInitialized) return;
+    if (!this.app || !this.isInitialized || !this.app.screen || this.isDestroyed) return;
 
     const { width, height } = this.app.screen;
     const tSec = tMs / 1000;
@@ -245,7 +266,7 @@ export class KineticEngine {
   }
 
   public resize(): void {
-    if (!this.app) return;
+    if (!this.app || !this.isInitialized || !this.app.renderer || !this.app.screen || this.isDestroyed) return;
     this.app.renderer.resize(window.innerWidth, window.innerHeight);
     const { width, height } = this.app.screen;
     this.updateBackground();
@@ -255,15 +276,32 @@ export class KineticEngine {
   }
 
   public destroy(): void {
+    this.isDestroyed = true;
     for (const scene of this.scenes.values()) {
-      scene.destroy();
+      try {
+        scene.destroy();
+      } catch {
+        // ignore
+      }
     }
     this.scenes.clear();
+
     if (this.app) {
-      this.app.destroy(true, { children: true });
+      try {
+        // PixiJS v8 safely destroys only after renderer and resize listeners have attached
+        const appAny = this.app as any;
+        if (this.isInitialized && typeof appAny._cancelResize === 'function') {
+          this.app.destroy(true, { children: true });
+        } else if (this.isInitialized) {
+          this.app.destroy();
+        }
+      } catch {
+        // Prevent unhandled errors during rapid StrictMode unmounts
+      }
       this.app = null;
     }
     this.isInitialized = false;
+    this.isInitializing = false;
   }
 }
 

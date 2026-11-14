@@ -17,3 +17,4 @@ if (Test-Path $binary) {
     Write-Host "Building and starting Kinetic Lyrics backend..." -ForegroundColor Cyan
     cargo run --manifest-path "$PSScriptRoot\backend\Cargo.toml"
 }
+
