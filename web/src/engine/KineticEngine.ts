@@ -14,6 +14,8 @@ function hexToNumber(hex: string): number {
 export class KineticEngine {
   private app: Application | null = null;
   private canvas: HTMLCanvasElement;
+  private container: HTMLElement | null = null;
+  private ownsCanvas: boolean = false;
   private rootContainer: Container = new Container();
   private backgroundGfx: Graphics = new Graphics();
   private instrumentalGfx: Graphics = new Graphics();
@@ -29,8 +31,22 @@ export class KineticEngine {
   private isInitializing: boolean = false;
   private isDestroyed: boolean = false;
 
-  constructor(canvas: HTMLCanvasElement) {
-    this.canvas = canvas;
+  constructor(target: HTMLElement) {
+    if (target instanceof HTMLCanvasElement) {
+      this.canvas = target;
+      this.ownsCanvas = false;
+    } else {
+      this.container = target;
+      this.canvas = document.createElement('canvas');
+      this.canvas.className = 'w-full h-full block touch-none cursor-default';
+      this.container.appendChild(this.canvas);
+      this.ownsCanvas = true;
+    }
+
+    this.canvas.addEventListener('webglcontextlost', (e) => {
+      e.preventDefault();
+      console.warn('KineticEngine: WebGL context loss detected & preventDefault called.');
+    });
   }
 
   public async init(): Promise<void> {
@@ -42,17 +58,26 @@ export class KineticEngine {
       await app.init({
         canvas: this.canvas,
         resizeTo: window,
-        resolution: window.devicePixelRatio || 1,
+        resolution: Math.min(window.devicePixelRatio || 1, 2),
         autoDensity: true,
         backgroundColor: hexToNumber(this.theme.backgroundColor),
-        antialias: true
+        antialias: true,
+        preference: 'webgl',
+        powerPreference: 'high-performance'
       });
 
       if (this.isDestroyed) {
         try {
-          app.destroy(true, { children: true });
+          app.destroy(false, { children: true });
         } catch {
           // ignore
+        }
+        if (this.ownsCanvas && this.canvas.parentElement) {
+          try {
+            this.canvas.parentElement.removeChild(this.canvas);
+          } catch {
+            // ignore
+          }
         }
         return;
       }
@@ -288,18 +313,27 @@ export class KineticEngine {
 
     if (this.app) {
       try {
-        // PixiJS v8 safely destroys only after renderer and resize listeners have attached
+        // PixiJS v8: pass false for rendererDestroyOptions to prevent releasing GlobalResourceRegistry
         const appAny = this.app as any;
         if (this.isInitialized && typeof appAny._cancelResize === 'function') {
-          this.app.destroy(true, { children: true });
+          this.app.destroy(false, { children: true });
         } else if (this.isInitialized) {
-          this.app.destroy();
+          this.app.destroy(false, { children: true });
         }
       } catch {
         // Prevent unhandled errors during rapid StrictMode unmounts
       }
       this.app = null;
     }
+
+    if (this.ownsCanvas && this.canvas.parentElement) {
+      try {
+        this.canvas.parentElement.removeChild(this.canvas);
+      } catch {
+        // ignore
+      }
+    }
+
     this.isInitialized = false;
     this.isInitializing = false;
   }

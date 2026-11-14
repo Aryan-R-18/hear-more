@@ -3,7 +3,7 @@ import { usePlayerStore } from '../store/playerStore';
 import { KineticEngine } from '../engine/KineticEngine';
 
 export const Visualizer: React.FC = () => {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const engineRef = useRef<KineticEngine | null>(null);
   const animFrameRef = useRef<number>(0);
 
@@ -17,10 +17,10 @@ export const Visualizer: React.FC = () => {
 
   // Initialize Pixi engine
   useEffect(() => {
-    if (!canvasRef.current) return;
+    if (!containerRef.current) return;
 
     let isMounted = true;
-    const engine = new KineticEngine(canvasRef.current);
+    const engine = new KineticEngine(containerRef.current);
     engineRef.current = engine;
 
     engine.init().then(() => {
@@ -92,9 +92,9 @@ export const Visualizer: React.FC = () => {
   }, [clock, syncTick]);
 
   return (
-    <canvas
-      ref={canvasRef}
-      className="absolute inset-0 w-full h-full block touch-none cursor-default"
+    <div
+      ref={containerRef}
+      className="absolute inset-0 w-full h-full block touch-none cursor-default overflow-hidden"
     />
   );
 };
