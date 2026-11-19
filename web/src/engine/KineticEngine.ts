@@ -177,12 +177,39 @@ export class KineticEngine {
         // We are before line i (in a gap or intro)
         nextLine = l;
         prevLine = i > 0 ? this.lines[i - 1] : null;
+        // If previous line finished recently (within 2.5s), keep it on screen gracefully
+        if (prevLine && prevLine.text.trim() && tSec < prevLine.end + 2.5) {
+          currentLine = prevLine;
+          currentLineIdx = i - 1;
+        }
         break;
+      }
+    }
+
+    // If beyond the last line but within 3s of song outro, hold the final line
+    if (!currentLine && this.lines.length > 0) {
+      const last = this.lines[this.lines.length - 1];
+      if (tSec >= last.end && tSec < last.end + 3.0 && last.text.trim()) {
+        currentLine = last;
+        currentLineIdx = this.lines.length - 1;
+        prevLine = this.lines.length > 1 ? this.lines[this.lines.length - 2] : null;
       }
     }
 
     // Clear instrumental graphics
     this.instrumentalGfx.clear();
+
+    // If line has text but words were not populated, synthesize word timings on the fly
+    if (currentLine && (!currentLine.words || currentLine.words.length === 0) && currentLine.text.trim()) {
+      const rawWords = currentLine.text.trim().split(/\s+/);
+      const lineDur = Math.max(0.5, currentLine.end - currentLine.start);
+      const wordDur = lineDur / rawWords.length;
+      currentLine.words = rawWords.map((txt, idx) => ({
+        text: txt,
+        start: currentLine!.start + idx * wordDur,
+        end: currentLine!.start + (idx + 1) * wordDur
+      }));
+    }
 
     // If no line is active (intro, outro, or instrumental break)
     if (!currentLine || !currentLine.text.trim()) {

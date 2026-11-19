@@ -25,9 +25,10 @@ export const Visualizer: React.FC = () => {
 
     engine.init().then(() => {
       if (!isMounted) return;
-      engine.setTheme(theme);
-      engine.setSceneOverride(sceneOverride);
-      engine.setLyrics(lines);
+      const state = usePlayerStore.getState();
+      engine.setTheme(state.theme);
+      engine.setSceneOverride(state.sceneOverride);
+      engine.setLyrics(state.lines);
     });
 
     const handleResize = () => {
@@ -61,6 +62,7 @@ export const Visualizer: React.FC = () => {
   // Update lyrics when changed
   useEffect(() => {
     if (engineRef.current) {
+      console.log('Visualizer updating engine lyrics count:', lines.length);
       engineRef.current.setLyrics(lines);
     }
   }, [lines]);
