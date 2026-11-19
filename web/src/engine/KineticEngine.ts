@@ -1,3 +1,4 @@
+import 'pixi.js/unsafe-eval';
 import { Application, Container, Graphics } from 'pixi.js';
 import { LyricLine, LyricWord, SceneType, ThemeConfig } from '@kinetic-lyrics/shared';
 import { DEFAULT_THEMES, RenderContext, Scene } from './types';
@@ -39,6 +40,12 @@ export class KineticEngine {
       this.container = target;
       this.canvas = document.createElement('canvas');
       this.canvas.className = 'w-full h-full block touch-none cursor-default';
+      this.canvas.style.position = 'absolute';
+      this.canvas.style.top = '0';
+      this.canvas.style.left = '0';
+      this.canvas.style.width = '100%';
+      this.canvas.style.height = '100%';
+      this.canvas.style.display = 'block';
       this.container.appendChild(this.canvas);
       this.ownsCanvas = true;
     }
@@ -311,6 +318,14 @@ export class KineticEngine {
     }
 
     this.activeSceneId = targetSceneId;
+
+    if (this.app && this.app.renderer) {
+      try {
+        this.app.render();
+      } catch {
+        // ignore
+      }
+    }
   }
 
   public getActiveSceneId(): Exclude<SceneType, 'auto'> {
