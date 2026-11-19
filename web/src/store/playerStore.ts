@@ -59,6 +59,92 @@ interface PlayerStore {
 
 const initialClock = new PlaybackClock(0);
 
+interface QueryCandidate {
+  title: string;
+  artist: string;
+}
+
+function generateCandidates(rawTitle: string, rawArtist: string): QueryCandidate[] {
+  const candidates: QueryCandidate[] = [];
+  const seen = new Set<string>();
+
+  const add = (t: string, a: string) => {
+    const cleanT = t.replace(/\s+/g, ' ').trim();
+    const cleanA = a.replace(/\s+/g, ' ').trim();
+    if (!cleanT || cleanT.length < 2) return;
+    const key = `${cleanT.toLowerCase()}___${cleanA.toLowerCase()}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      candidates.push({ title: cleanT, artist: cleanA });
+    }
+  };
+
+  // Strip pipe subtitles: e.g. "Dusk Till Dawn – ZAYN & Sia | Two Hearts..." -> "Dusk Till Dawn – ZAYN & Sia"
+  let cleanTitle = rawTitle;
+  if (cleanTitle.includes('|')) {
+    const parts = cleanTitle.split('|');
+    if (parts[0].trim().length >= 3) {
+      cleanTitle = parts[0].trim();
+    }
+  }
+
+  // Strip bracketed noise tokens: (Official Video), (Lyrics), (Audio), [HD], etc.
+  const noiseRegex = /[\(\[\{]\s*(?:official\s+(?:music\s+)?(?:video|mv|audio)|official\s+lyric\s+video|lyric\s+video|lyrics?|visualizer|audio|video|clip\s+officiel|mv|hd|hq|4k|remaster(?:ed)?|live|prod\.[^\)\]\}]+)[\)\]\}]/gi;
+  cleanTitle = cleanTitle.replace(noiseRegex, ' ').replace(/\s+/g, ' ').trim();
+
+  // Clean artist: strip "- Topic", "VEVO", "Official"
+  let cleanArtist = rawArtist
+    .replace(/\s*-\s*topic\s*$/i, '')
+    .replace(/vevo$/i, '')
+    .replace(/\bofficial\b/i, '')
+    .trim();
+
+  const isChannelLike = (name: string) => {
+    return /\b(lyrics?|lyrical|haven|channel|records|music|clouds|vevo|nation|vibe|sound|trap|chill|tracks|tv|media|bass|edits|radio|fm|entertainment|production)\b/i.test(name);
+  };
+
+  const cleanFt = (s: string) =>
+    s.replace(/\s*(?:feat|ft|featuring)\.?\s+.*$/i, '')
+     .replace(/\s*&.*$/, '')
+     .trim();
+
+  // Check for separator dash: " - ", " – ", " — "
+  const sepMatch = cleanTitle.match(/\s+[-–—]\s+/);
+  if (sepMatch && sepMatch.index !== undefined) {
+    const part1 = cleanTitle.substring(0, sepMatch.index).trim();
+    const part2 = cleanTitle.substring(sepMatch.index + sepMatch[0].length).trim();
+
+    if (isChannelLike(cleanArtist) || !cleanArtist) {
+      // Channel name is generic noise:
+      // Try (part1 as title, part2 as artist) e.g. "Dusk Till Dawn" by "ZAYN"
+      add(part1, cleanFt(part2));
+      add(part1, part2);
+      // Try (part2 as title, part1 as artist) e.g. "Song" by "Artist"
+      add(part2, cleanFt(part1));
+      add(part2, part1);
+      // Try title without artist
+      add(part1, '');
+    } else {
+      // Channel might be valid artist or video title is "Artist - Song"
+      add(part2, cleanFt(part1));
+      add(part1, cleanFt(part2));
+      add(cleanTitle, cleanArtist);
+    }
+  } else {
+    // No separator in title
+    if (isChannelLike(cleanArtist)) {
+      add(cleanTitle, '');
+    } else {
+      add(cleanTitle, cleanArtist);
+    }
+  }
+
+  // Always include raw fallback as last resort
+  add(rawTitle, rawArtist);
+
+  return candidates;
+}
+
 // Helper to persist settings to chrome.storage.sync when available
 function saveSyncSetting(update: Partial<ExtensionSettings>) {
   if (typeof chrome !== 'undefined' && chrome.storage?.sync) {
@@ -208,31 +294,45 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
 
     try {
       const backendUrl = get().backendUrl || 'http://localhost:8080';
-      const params = new URLSearchParams({
-        title,
-        artist,
-        ...(duration ? { duration: Math.round(duration).toString() } : {})
-      });
+      const candidates = generateCandidates(title, artist);
 
-      const response = await fetch(`${backendUrl}/api/lyrics?${params.toString()}`);
-      if (!response.ok) {
-        throw new Error(`Backend returned status ${response.status}`);
+      let bestMatch: LyricsResponse | null = null;
+
+      for (const candidate of candidates) {
+        try {
+          const params = new URLSearchParams({
+            title: candidate.title,
+            ...(candidate.artist ? { artist: candidate.artist } : {}),
+            ...(duration ? { duration: Math.round(duration).toString() } : {})
+          });
+
+          const response = await fetch(`${backendUrl}/api/lyrics?${params.toString()}`);
+          if (!response.ok) continue;
+
+          const data: LyricsResponse = await response.json();
+          if (data.found && data.synced && data.lines && data.lines.length > 0) {
+            bestMatch = data;
+            break; // Ideal synced match found!
+          } else if (data.found && data.plainText && !bestMatch) {
+            bestMatch = data;
+          }
+        } catch {
+          // Continue to next candidate
+        }
       }
 
-      const data: LyricsResponse = await response.json();
-
-      if (data.found && data.synced && data.lines && data.lines.length > 0) {
+      if (bestMatch && bestMatch.found && bestMatch.synced && bestMatch.lines && bestMatch.lines.length > 0) {
         set({
-          lines: data.lines,
-          plainLyrics: data.plainText || '',
+          lines: bestMatch.lines,
+          plainLyrics: bestMatch.plainText || '',
           isSynced: true,
           isLoadingLyrics: false,
           lyricsStatusMessage: ''
         });
-      } else if (data.plainText) {
+      } else if (bestMatch && bestMatch.plainText) {
         set({
           lines: [],
-          plainLyrics: data.plainText,
+          plainLyrics: bestMatch.plainText,
           isSynced: false,
           isLoadingLyrics: false,
           lyricsStatusMessage: 'Only plain lyrics available'
